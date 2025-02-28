@@ -41,6 +41,24 @@ document.addEventListener("DOMContentLoaded", function () {
     result.push(current);
     return result;
   }
+  /**
+   * 
+   * @param {string|number|null} field 
+   * @returns 
+   */
+  function csvEscape(field) {
+    if (field == null) field = "";
+    if (typeof field === "number") field = field.toString();
+    // Ersetze doppelte Anführungszeichen durch verdoppelte Anführungszeichen
+    if (field.indexOf('"') !== -1) {
+      field = field.replace(/"/g, '""');
+    }
+    // Wenn das Feld Komma, Zeilenumbruch oder Anführungszeichen enthält, in doppelte Anführungszeichen setzen
+    if (field.indexOf(',') !== -1 || field.indexOf('\n') !== -1 || field.indexOf('"') !== -1) {
+      return '"' + field + '"';
+    }
+    return field;
+  }
 
   // --- Cookie Helper Functions (with expiration for persistence) ---
   function setCookie(cname, cvalue, exdays) {
@@ -369,7 +387,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
           }
         });
-        newCsvContent += newRow.join(",") + "\n";
+        newCsvContent += newRow.map(csvEscape).join(",") + "\n";
       }
     }
 

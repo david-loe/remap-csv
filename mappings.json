@@ -1,15 +1,15 @@
 {
     "mappings": {
         "N26 ➡️ ERPNext": {
-            "\"Booking Date\"": "Datum",
+            "Booking Date": "Datum",
             "Bankkonto": "fixed:",
             "Unternehmen": "fixed:",
             "Währung": "fixed:EUR",
-            "\"Amount (EUR)\"": "split:Auszahlung|Einzahlung",
-            "\"Partner Name\"": "Name der Partei/Kontoinhaber (Kontoauszug)",
-            "\"Partner Iban\"": "IBAN der Partei (Kontoauszug)",
+            "Amount (EUR)": "split:Auszahlung|Einzahlung",
+            "Partner Name": "Name der Partei/Kontoinhaber (Kontoauszug)",
+            "Partner Iban": "IBAN der Partei (Kontoauszug)",
             "Type": "Art der Transaktion",
-            "\"Payment Reference\"": "Beschreibung"
+            "Payment Reference": "Beschreibung"
         }
     }
 }
