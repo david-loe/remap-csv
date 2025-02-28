@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let csvData = "";
   let defaultMappings = {};
   let headers = [];
+  let fileName = "";
 
   const csvFileInput = document.getElementById("csvFileInput");
   const mappingSection = document.getElementById("mappingSection");
@@ -63,6 +64,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     const file = csvFileInput.files[0];
+    fileName = file.name;
     const reader = new FileReader();
     reader.onload = function (e) {
       csvData = e.target.result;
@@ -364,7 +366,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const blob = new Blob([newCsvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     downloadLink.href = url;
-    downloadLink.download = "renamed_columns.csv";
+    let baseName = fileName;
+    if (baseName.toLowerCase().endsWith(".csv")) {
+      baseName = baseName.slice(0, -4);
+    }
+    downloadLink.download = baseName + "_remap.csv";
     downloadLink.click();
   });
 });
