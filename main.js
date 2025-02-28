@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let csvData = "";
   let defaultMappings = {};
   let headers = [];
-  let fileName = "";
+  let fileName = ""; // Store original file name
 
   const csvFileInput = document.getElementById("csvFileInput");
   const mappingSection = document.getElementById("mappingSection");
@@ -15,7 +15,34 @@ document.addEventListener("DOMContentLoaded", function () {
   const saveMappingBtn = document.getElementById("saveMappingBtn");
   const loadMappingBtn = document.getElementById("loadMappingBtn");
 
-  // Cookie helper functions (for saving mapping persistently)
+  // --- CSV Parsing Function ---
+  // This function parses a single CSV line handling quoted fields correctly.
+  function parseCSVLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        // If already in quotes and next char is also a quote, it's an escaped quote.
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result;
+  }
+
+  // --- Cookie Helper Functions (with expiration for persistence) ---
   function setCookie(cname, cvalue, exdays) {
     const d = new Date();
     d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
@@ -36,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return "";
   }
 
-  // Load default mappings from mappings.json
+  // --- Load Default Mappings from mappings.json ---
   fetch("mappings.json")
     .then(response => {
       if (!response.ok) {
@@ -58,13 +85,13 @@ document.addEventListener("DOMContentLoaded", function () {
       console.error("Error loading default mappings:", error);
     });
 
-  // Automatically load CSV when a file is selected
+  // --- Automatically Load CSV When a File is Selected ---
   csvFileInput.addEventListener("change", function () {
     if (csvFileInput.files.length === 0) {
       return;
     }
     const file = csvFileInput.files[0];
-    fileName = file.name;
+    fileName = file.name; // Save original file name
     const reader = new FileReader();
     reader.onload = function (e) {
       csvData = e.target.result;
@@ -73,10 +100,10 @@ document.addEventListener("DOMContentLoaded", function () {
         alert("The CSV file appears to be empty.");
         return;
       }
-      headers = lines[0].split(",");
+      headers = parseCSVLine(lines[0]);  // Use custom CSV parser for header
       // Clear previous mapping rows
       mappingTableBody.innerHTML = "";
-      // Create rows for each CSV header (these are read-only for the left cell)
+      // Create rows for each CSV header
       headers.forEach(function (header) {
         const row = document.createElement("tr");
         // Left cell: Original column (read-only)
@@ -100,10 +127,10 @@ document.addEventListener("DOMContentLoaded", function () {
     reader.readAsText(file);
   });
 
-  // Button to add a new column mapping row (for columns not present in the CSV)
+  // --- Add New Column Button (for columns not in CSV) ---
   addColumnBtn.addEventListener("click", function () {
     const row = document.createElement("tr");
-    // Left cell: Editable new column name (placeholder text)
+    // Left cell: New column name (editable)
     const cellOriginal = document.createElement("td");
     const inputOriginal = document.createElement("input");
     inputOriginal.type = "text";
@@ -111,7 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
     inputOriginal.placeholder = "New Column Name";
     cellOriginal.appendChild(inputOriginal);
     row.appendChild(cellOriginal);
-    // Right cell: Mapping rule (editable), pre-filled with "fixed:" as hint
+    // Right cell: Mapping rule (editable), pre-filled with "fixed:" as a hint
     const cellMapping = document.createElement("td");
     const inputMapping = document.createElement("input");
     inputMapping.type = "text";
@@ -119,20 +146,19 @@ document.addEventListener("DOMContentLoaded", function () {
     inputMapping.value = "fixed:";  // Hint for fixed mapping
     cellMapping.appendChild(inputMapping);
     row.appendChild(cellMapping);
-    // Mark row as "new" so that it is processed differently (no CSV index)
+    // Mark row as new (no CSV index)
     row.dataset.new = "true";
     mappingTableBody.appendChild(row);
   });
 
-  // Automatically apply selected mapping when dropdown changes
+  // --- Automatically Apply Selected Mapping When Dropdown Changes ---
   mappingSelect.addEventListener("change", function () {
     const selectedMappingKey = mappingSelect.value;
     const rows = mappingTableBody.querySelectorAll("tr");
-    let mapping = {};
     if (selectedMappingKey !== "custom" && defaultMappings[selectedMappingKey]) {
-      mapping = defaultMappings[selectedMappingKey];
+      const mapping = defaultMappings[selectedMappingKey];
       rows.forEach(function (row) {
-        // Für bestehende Zeilen: CSV-Spalte oder manuell hinzugefügte neue Spalte
+        // For CSV rows, use left cell's textContent; for new rows, use input value
         let original = row.dataset.new ? row.cells[0].querySelector("input").value : row.cells[0].textContent;
         const input = row.cells[1].querySelector("input");
         if (mapping.hasOwnProperty(original)) {
@@ -141,17 +167,15 @@ document.addEventListener("DOMContentLoaded", function () {
           input.value = "";
         }
       });
-      // Erfassung der bereits vorhandenen Schlüssel
+      // Also add new rows from mapping if not already present
       const appliedKeys = new Set();
       rows.forEach(row => {
         let original = row.dataset.new ? row.cells[0].querySelector("input").value : row.cells[0].textContent;
         appliedKeys.add(original);
       });
-      // Neue Spalten aus dem Mapping hinzufügen, wenn sie noch nicht existieren
       for (let key in mapping) {
         if (!appliedKeys.has(key)) {
           const row = document.createElement("tr");
-          // Linke Zelle: Neuer Spaltenname (editierbar)
           const cellOriginal = document.createElement("td");
           const inputOriginal = document.createElement("input");
           inputOriginal.type = "text";
@@ -159,7 +183,6 @@ document.addEventListener("DOMContentLoaded", function () {
           inputOriginal.value = key;
           cellOriginal.appendChild(inputOriginal);
           row.appendChild(cellOriginal);
-          // Rechte Zelle: Mapping-Regel
           const cellMapping = document.createElement("td");
           const inputMapping = document.createElement("input");
           inputMapping.type = "text";
@@ -167,15 +190,14 @@ document.addEventListener("DOMContentLoaded", function () {
           inputMapping.value = mapping[key];
           cellMapping.appendChild(inputMapping);
           row.appendChild(cellMapping);
-          // Kennzeichne die Zeile als neue Spalte
           row.dataset.new = "true";
           mappingTableBody.appendChild(row);
         }
       }
     } else {
-      // Für Custom Mapping: Zurücksetzen der Zeilen, die von der CSV stammen
+      // For Custom Mapping, reset CSV rows to default
       rows.forEach(function (row) {
-        if (row.dataset.new) return; // Neue Spalten nicht zurücksetzen
+        if (row.dataset.new) return; // Don't modify manually added rows
         const original = row.cells[0].textContent;
         const input = row.cells[1].querySelector("input");
         input.value = original;
@@ -183,30 +205,26 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-
-  // Save mapping rules to cookie (with a long expiration, e.g. 10 years)
+  // --- Save Mapping to Cookie (10-year expiration) ---
   saveMappingBtn.addEventListener("click", function () {
     const mappingArray = [];
     const rows = mappingTableBody.querySelectorAll("tr");
     rows.forEach(function (row) {
-      // For new rows, get the value from the left input; for CSV rows, use cell text.
       const original = row.dataset.new ? row.cells[0].querySelector("input").value : row.cells[0].textContent;
       const rule = row.cells[1].querySelector("input").value;
       mappingArray.push({ original, rule });
     });
-    // Save as JSON string in a cookie (expires in 10 years)
     setCookie("savedMapping", JSON.stringify(mappingArray), 3650);
     alert("Mapping saved!");
   });
 
-  // Load mapping rules from cookie and apply them to the table
+  // --- Load Mapping from Cookie ---
   loadMappingBtn.addEventListener("click", function () {
     const saved = getCookie("savedMapping");
     if (saved) {
       try {
         const mappingArray = JSON.parse(saved);
         const rows = mappingTableBody.querySelectorAll("tr");
-        // For each saved rule, if the original column exists in the table, update its rule.
         mappingArray.forEach(function (item) {
           rows.forEach(function (row) {
             let original = row.dataset.new ? row.cells[0].querySelector("input").value : row.cells[0].textContent;
@@ -224,21 +242,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Process CSV with advanced mapping logic and automatically trigger download
+  // --- Process CSV and Automatically Trigger Download ---
   processBtn.addEventListener("click", function () {
     if (csvData === "") {
       alert("No CSV data available. Please load a file first.");
       return;
     }
 
-    // Build array of mapping rules from the table.
-    // For rows that came from the CSV header, store an index;
-    // for new rows, mark them as new.
+    // Build mapping array from table rows.
     const mappingArray = [];
     const rows = mappingTableBody.querySelectorAll("tr");
     rows.forEach(function (row, idx) {
-      let original;
-      let isNew = false;
+      let original, isNew = false;
       if (row.dataset.new) {
         original = row.cells[0].querySelector("input").value;
         isNew = true;
@@ -246,14 +261,13 @@ document.addEventListener("DOMContentLoaded", function () {
         original = row.cells[0].textContent;
       }
       const rule = row.cells[1].querySelector("input").value;
-      // Only assign an index for rows that are not new.
       mappingArray.push({ original, rule, index: isNew ? null : idx, isNew });
     });
 
-    // Build output mapping with special logic:
-    // - "fixed:" prefix => fixed mapping (format: fixed:ColumnName|FixedValue)
-    // - "split:" prefix => conditional split mapping (format: split:NegativeHeader|PositiveHeader)
-    // - Otherwise, normal mapping.
+    // Build output mapping using special rules:
+    // - "fixed:" => fixed mapping (format: fixed:ColumnName|FixedValue)
+    // - "split:" => conditional split mapping (format: split:NegativeHeader|PositiveHeader)
+    // - Otherwise => normal mapping.
     const outputMapping = [];
     mappingArray.forEach((item, i) => {
       let rule = item.rule.trim();
@@ -262,7 +276,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (parts.length === 2) {
           outputMapping.push({
             type: "split",
-            // For CSV rows, use the stored index; for new rows, index is undefined.
             index: item.isNew ? null : item.index,
             negativeHeader: parts[0].trim(),
             positiveHeader: parts[1].trim(),
@@ -309,7 +322,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const lines = csvData.split(/\r\n|\n/);
     if (lines.length === 0) return;
 
-    // Build new header row from outputMapping
+    // Build new CSV header using outputMapping
     const newHeaders = [];
     outputMapping.forEach(mapping => {
       if (mapping.type === "normal" || mapping.type === "fixed") {
@@ -321,14 +334,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     let newCsvContent = newHeaders.join(",") + "\n";
 
-    // Process each CSV row (excluding header)
+    // Process each CSV row (skipping the header)
     for (let i = 1; i < lines.length; i++) {
       if (lines[i].trim() !== "") {
-        const rowValues = lines[i].split(",");
+        const rowValues = parseCSVLine(lines[i]);  // Use custom CSV parser
         const newRow = [];
         outputMapping.forEach(mapping => {
           if (mapping.type === "normal") {
-            // For new rows, no CSV value exists – output an empty string.
             newRow.push(mapping.index !== null ? (rowValues[mapping.index] || "") : "");
           } else if (mapping.type === "fixed") {
             newRow.push(mapping.fixedValue);
@@ -352,7 +364,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 newRow.push("");
               }
             } else {
-              // For new rows with a split mapping, no CSV value exists.
               newRow.push("");
               newRow.push("");
             }
@@ -362,7 +373,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // Create Blob and automatically trigger download
+    // Create Blob and trigger download with file name: originalName_remap.csv
     const blob = new Blob([newCsvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     downloadLink.href = url;
